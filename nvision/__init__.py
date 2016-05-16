@@ -2,7 +2,7 @@ import numpy
 import matplotlib as plt
 import sys
 
-sys.path.insert(0,'/Users/ns935/PycharmProjects/nvision/bh_tsne')
+sys.path.insert(0,'../bh_tsne')
 
 import bhtsne
 
