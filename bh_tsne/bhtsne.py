@@ -44,6 +44,7 @@ from struct import calcsize, pack, unpack
 from subprocess import Popen
 from sys import stderr, stdin, stdout
 from tempfile import mkdtemp
+import tensorflow as tf
 
 ### Constants
 BH_TSNE_BIN_PATH = path_join(dirname(__file__), 'bh_tsne')

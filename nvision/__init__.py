@@ -1,10 +1,6 @@
 import numpy
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import tensorflow as tf
-import sys
-
-sys.path.insert(0,'../bh_tsne')
-
-import bhtsne
+import bh_tsne.bhtsne
 
 print('hello world')
