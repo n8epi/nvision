@@ -3,6 +3,7 @@ import scipy as sp
 import scipy.spatial as spat
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 import matplotlib.cm as cm
 from sklearn.manifold import TSNE
 
@@ -48,17 +49,23 @@ def nvis(data,res=16):
     #print(gridbar)
 
 
+    print('Constructing image visualization function...')
+
     # Imaging function for data
     def im(dat):
 
+
+        #print("Constructing the image...")
         nc = 63;
         colors = cm.gray(np.linspace(0,1,nc+1))
         cs = np.empty((len(dat),4))
         for i in range(0,len(dat)):
             cs[i,:]=colors[np.int32(np.floor(nc*dat[i]))]
 
-        plt.scatter(xtsne,ytsne,color=cs)
-        plt.show()
+
+
+        #plt.scatter(xtsne,ytsne,color=cs)
+        #plt.show()
 
         dd=np.append(dat,[0,0,0,0],axis=0) # Append zeros for the corners
         v = np.empty((res,res))
@@ -79,28 +86,54 @@ def nvis(data,res=16):
 
 
 if __name__ == '__main__':
-    data = tf.transpose(mnist.test.images)
-    #i = tf.placeholder(tf.int64,shape=[2])
-    #i = tf.placeholder(tf.int32,shape=None)
-    y = tf.slice(data,[0,0],[784,10000])
+
+    res = 32 # Resolution of converted images
+
+    ntrain = 55000
+    ntest = 10000
+
+    print('Generating data from tensorflow...')
+    data = tf.transpose(mnist.train.images)
+
+    y = tf.slice(data,[0,0],[784,ntrain])
+    z = tf.slice(mnist.test.images,[0,0],[ntest,784])
 
     with tf.Session() as sess:  # create a session to evaluate the symbolic expressions
-        #print(sess.run(y))
         x=sess.run(y)
-        #print(x);
 
-    imager = nvis(x,res=1024)
+    with tf.Session() as sess:
+        xtest=sess.run(z)
 
-    n=902
-    dat = []
-    for r in x:
-        dat.append(r[n])
+    print('Generating image converter...')
+    imager = nvis(x,res=res)
 
-    im = imager(dat)
+    # Tests for imager...
+    #im = imager(x[:,900])
+    #plt.imshow(im,interpolation='none',cmap='gray')
+    #plt.show()
 
-    #print(im)
-    plt.imshow(im,interpolation='none',cmap='gray')
-    plt.show()
+    try:
+        temp_tensor = np.load('../data/mnist_vis_train_images.npy')
+        test_tensor = np.load('../data/mnist_vis_test_images.npy')
+    except FileNotFoundError:
+        print("Initialization of tensors...")
+        x = np.transpose(x) # Transpose for convenient slicing
+        temp_tensor = np.empty((res,res,ntrain))
+        test_tensor = np.empty((res, res, ntest))
+        print("Populating training tensor...")
+        for i in range(0,ntrain):
+            temp_tensor[:,:,i] = imager(x[i,:])
+        print("Populating test tensor...")
+        for i in range(0,ntest):
+            test_tensor[:,:,i] = imager(xtest[i,:])
+
+        print("Saving numpy arrays...")
+        np.save('../data/mnist_vis_train_images.npy',temp_tensor)
+        np.save('../data/mnist_vis_test_images.npy',test_tensor)
+
+    print("Conversion to tensorflow...")
+    mnist_vis_train_images = tf.convert_to_tensor(temp_tensor)
+    mnist_vis_test_images = tf.convert_to_tensor(test_tensor)
 
     #print(x)
     #model = TSNE(n_components=2, random_state=0)
