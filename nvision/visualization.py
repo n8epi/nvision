@@ -13,7 +13,7 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 def nvis(data,res=16):
     # Obtain embedding of points
-    model = TSNE(n_components=2, random_state=0)
+    model = TSNE(n_components=2, random_state=0, verbose=1)
     z = model.fit_transform(data)
 
     xtsne = []
@@ -89,9 +89,9 @@ if __name__ == '__main__':
         x=sess.run(y)
         #print(x);
 
-    imager = nvis(x,res=32)
+    imager = nvis(x,res=1024)
 
-    n=900
+    n=902
     dat = []
     for r in x:
         dat.append(r[n])
