@@ -1,177 +1,198 @@
-import tensorflow as tf
-import scipy as sp
-import scipy.spatial as spat
+from nvision import nvis, nvis_spectral
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import sklearn.preprocessing as pproc
+from sklearn import datasets
+from colorsys import hls_to_rgb
+
 import sys
-import matplotlib.cm as cm
-from sklearn.manifold import TSNE
+sys.path.insert(0, '../')
 
-# MNIST dataset extraction
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+'''
+This is a quick test performed on the Wisconsin Breast Cancer dataset in sklearn.
+'''
 
+def colorize(z):
+    '''
+    Stolen from stack overflow -- colorize complex images
+    :param z:
+    :return:
+    '''
+    r = np.abs(z)
+    arg = np.angle(z)
 
-def nvis(data,res=16):
-    # Obtain embedding of points
-    model = TSNE(n_components=2, random_state=0, verbose=1)
-    z = model.fit_transform(data)
+    h = (arg + np.pi)  / (2 * np.pi) + 0.5
+    l = 1.0 - 1.0/(1.0 + r**0.3)
+    s = 0.8
 
-    xtsne = []
-    ytsne = []
-    for a in z:
-        xtsne.append(a[0])
-        ytsne.append(a[1])
+    c = np.vectorize(hls_to_rgb) (h,l,s) # --> tuple
+    c = np.array(c)  # -->  array of (3,n,m) shape, but need (n,m,3)
+    c = c.swapaxes(0,2)
+    return c
 
-    xlim = [min(xtsne), max(xtsne)]
-    ylim = [min(ytsne), max(ytsne)]
+def display_200_images(im, title, a, b, save = False, im_dir= ''):
+    '''
+    Simple function for displaying 200 images
+    :param im: res by res by num_images (>200) numpy array
+    :param title: title for the figure
+    :param a: lower color limit
+    :param b: upper color limit
+    :return: nothing...
+    '''
+    fig = plt.figure(figsize=(25, 8))
+    #fig.suptitle(title)
+    gs = gridspec.GridSpec(8, 25)
+    gs.update(wspace=0.025, hspace=0.025)  # set the spacing between axes.
+    for i in range(0, 200):
+        ax = plt.subplot(gs[i])
+        plt.axis('off')
+        plt.imshow(im[:, :, i], interpolation='nearest', clim=(a, b))
 
-    # Append corners to z
-    zz=np.append(z,np.array([[xlim[0],ylim[0]],[xlim[0],ylim[1]],[xlim[1],ylim[0]],[xlim[1],ylim[1]]]),axis=0)
-
-    tri = spat.Delaunay(zz)
-
-    # Get barycentric coordinates of endpoints for transformation
-    gridbar = np.empty((res,res,3))
-    idx = np.empty((res,res),dtype=np.int32)
-    dx = (xlim[1]-xlim[0])/(res+1)
-    dy = (ylim[1]-ylim[0])/(res+1)
-    for i in range(0,res):
-        for j in range(0,res):
-            pt = [xlim[0]+dx*(j+1),ylim[0]+dy*(i+1)];
-            idx[i,j] = tri.find_simplex(pt)
-            bar = tri.transform[idx[i,j], :2].dot(pt - tri.transform[idx[i,j], 2])
-            bar = np.append(bar, [1 - bar.sum()], axis=0)
-            #print(bar)
-            gridbar[i,j,:] = bar
-
-    simp = tri.simplices
-    #print(gridbar)
-
-
-    print('Constructing image visualization function...')
-
-    # Imaging function for data
-    def im(dat):
-
-
-        #print("Constructing the image...")
-        nc = 63;
-        colors = cm.gray(np.linspace(0,1,nc+1))
-        cs = np.empty((len(dat),4))
-        for i in range(0,len(dat)):
-            cs[i,:]=colors[np.int32(np.floor(nc*dat[i]))]
+    if save:
+        plt.savefig(
+            im_dir + title.replace(' ', '') + '.eps',
+            format='eps',
+            bbox_inches='tight',
+            dpi=200)
+    else:
+        plt.show()
 
 
+def colorize(z):
+    r = np.abs(z)
+    arg = np.angle(z)
 
-        #plt.scatter(xtsne,ytsne,color=cs)
-        #plt.show()
+    h = (arg + np.pi)  / (2 * np.pi) + 0.5
+    l = 1.0 - 1.0/(1.0 + r**0.3)
+    s = 0.8
 
-        dd=np.append(dat,[0,0,0,0],axis=0) # Append zeros for the corners
-        v = np.empty((res,res))
+    c = np.vectorize(hls_to_rgb) (h,l,s) # --> tuple
+    c = np.array(c)  # -->  array of (3,n,m) shape, but need (n,m,3)
+    c = c.swapaxes(0,2)
 
-        for i in range(0,res):
-            for j in range(0,res):
-                # Note that we have to flip the vertical for proper image alignment
-                #print(idx[i,j])
-                #print(gridbar[i,j,:])
-                #print(simp[idx[i,j]])
-                v[res-i-1,j] = gridbar[i,j,0]*dd[simp[idx[i,j]][0]]+gridbar[i,j,1]*dd[simp[idx[i,j]][1]]+gridbar[i,j,2]*dd[simp[idx[i,j]][2]]
-
-        return v
-
-    return im
+    return c
 
 
+def display_200_images_cmplx(R, I, title, res, save = False, im_dir= ''):
+    '''
+    Simple function for displaying 200 images
+    :param im: res by res by num_images (>200) numpy array
+    :param title: title for the figure
+    :param a: lower color limit
+    :param b: upper color limit
+    :return: nothing...
+    '''
 
+    hres = np.int(res/2)
+    fig = plt.figure(figsize=(25, 8))
+    #fig.suptitle(title)
+    gs = gridspec.GridSpec(8, 25)
+    gs.update(wspace=0.025, hspace=0.025)  # set the spacing between axes.
+    for i in range(0, 200):
+        ax = plt.subplot(gs[i])
+        plt.axis('off')
+        rpart = R[:,:,i]
+        rpart = np.roll(rpart, hres, axis=0)
+        rpart = np.roll(rpart, hres, axis=1)
+        ipart = I[:,:,i]
+        ipart = np.roll(ipart, hres, axis=0)
+        ipart = np.roll(ipart, hres, axis=1)
+        #rgb = np.stack([rpart, 0.25*np.ones((res,res)), ipart],axis=-1)
+        rgb = colorize(rpart+1.j*ipart)
+        plt.imshow(rgb, interpolation='nearest')
 
-if __name__ == '__main__':
+    if save:
+        plt.savefig(
+            im_dir + title.replace(' ', '') + '.eps',
+            format='eps',
+            bbox_inches='tight',
+            dpi=200)
+    else:
+        plt.show()
 
-    res = 32 # Resolution of converted images
+def display_100_images_cmplx(R, I, title, res, save = False, im_dir= ''):
+    '''
+    Simple function for displaying 100 images
+    :param im: res by res by num_images (>200) numpy array
+    :param title: title for the figure
+    :param a: lower color limit
+    :param b: upper color limit
+    :return: nothing...
+    '''
 
-    ntrain = 55000
-    ntest = 10000
+    hres = np.int(res/2)
+    fig = plt.figure(figsize=(10, 10))
+    #fig.suptitle(title)
+    gs = gridspec.GridSpec(10, 10)
+    gs.update(wspace=0.025, hspace=0.025)  # set the spacing between axes.
+    for i in range(0, 100):
+        ax = plt.subplot(gs[i])
+        plt.axis('off')
+        rpart = R[:,:,i]
+        rpart = np.roll(rpart, hres, axis=0)
+        rpart = np.roll(rpart, hres, axis=1)
+        ipart = I[:,:,i]
+        ipart = np.roll(ipart, hres, axis=0)
+        ipart = np.roll(ipart, hres, axis=1)
+        #rgb = np.stack([rpart, 0.25*np.ones((res,res)), ipart],axis=-1)
+        rgb = colorize(rpart+1.j*ipart)
+        plt.imshow(rgb, interpolation='nearest')
 
-    print('Generating data from tensorflow...')
-    data = tf.transpose(mnist.train.images)
+    if save:
+        plt.savefig(
+            im_dir + title.replace(' ', '') + '.eps',
+            format='eps',
+            bbox_inches='tight',
+            dpi=200)
+    else:
+        plt.show()
 
-    y = tf.slice(data,[0,0],[784,ntrain])
-    z = tf.slice(mnist.test.images,[0,0],[ntest,784])
+# Set data and image space parameters
+dim = 30  # Dimension of the data
+num_data = 569
+res = 64  # Image resolution
+n = res ** 2  # Total number of pixels
 
-    with tf.Session() as sess:  # create a session to evaluate the symbolic expressions
-        x=sess.run(y)
+# Load the data, store as a matrix of rows, and scale the features
+bcw = datasets.load_breast_cancer()  # Breast cancer data
+db = bcw.data[:, 0:dim]
+robust_scaler = pproc.RobustScaler()
+robust_scaler.fit_transform(db)
+db = robust_scaler.transform(db)
 
-    with tf.Session() as sess:
-        xtest=sess.run(z)
+print('Computing images and isometric embedding...')
+images, f = nvis_spectral(db, res)
 
-    print('Generating image converter...')
-    imager = nvis(x,res=res)
+save=False
+im_dir = './'
 
-    # Tests for imager...
-    #im = imager(x[:,900])
-    #plt.imshow(im,interpolation='none',cmap='gray')
-    #plt.show()
+print('Preparing plots of n-vision images...')
+#a = np.percentile(images, 1)
+#b = np.percentile(images, 99)
+rt = pproc.QuantileTransformer(n_quantiles=16)
+it = pproc.QuantileTransformer(n_quantiles=16)
+#rt = pproc.RobustScaler()
+#it = pproc.RobustScaler()
+ims = np.ndarray.flatten(images)
+R = np.reshape(np.real(ims),(n*num_data,1))
+I = np.reshape(np.imag(ims),(n*num_data,1))
+#rt.fit(R)
+#it.fit(I)
+#R = np.reshape(rt.transform(R), (res, res, num_data))
+#I = np.reshape(it.transform(I), (res, res, num_data))
+R = np.reshape(R, (res, res, num_data))
+I = np.reshape(R, (res, res, num_data))
 
-    try:
-        temp_tensor = np.load('../data/mnist_vis_train_images.npy')
-        test_tensor = np.load('../data/mnist_vis_test_images.npy')
-    except FileNotFoundError:
-        print("Initialization of tensors...")
-        x = np.transpose(x) # Transpose for convenient slicing
-        temp_tensor = np.empty((res,res,ntrain))
-        test_tensor = np.empty((res, res, ntest))
-        print("Populating training tensor...")
-        for i in range(0,ntrain):
-            temp_tensor[:,:,i] = imager(x[i,:])
-        print("Populating test tensor...")
-        for i in range(0,ntest):
-            test_tensor[:,:,i] = imager(xtest[i,:])
+images_0R = R[:, :, bcw.target == 0]
+images_0I = I[:, :, bcw.target == 0]
+images_1R = R[:, :, bcw.target == 1]
+images_1I = I[:, :, bcw.target == 1]
 
-        print("Saving numpy arrays...")
-        np.save('../data/mnist_vis_train_images.npy',temp_tensor)
-        np.save('../data/mnist_vis_test_images.npy',test_tensor)
+#images_0 = images[:, :, bcw.target == 0]
+#images_1 = images[:, :, bcw.target == 1]
+#display_200_images(images_1, 'Image Space Embeddings of Benign Tumor Data', a, b, save=save, im_dir=im_dir)
+#display_200_images(images_0, 'Image Space Embeddings of Malignant Tumor Data', a, b, save=save, im_dir=im_dir)
 
-    print("Conversion to tensorflow...")
-    mnist_vis_train_images = tf.convert_to_tensor(temp_tensor)
-    mnist_vis_test_images = tf.convert_to_tensor(test_tensor)
-
-    #print(x)
-    #model = TSNE(n_components=2, random_state=0)
-    #z = model.fit_transform(x)
-    #tri = spat.Delaunay(z)
-
-    #xtsne = []
-    #ytsne = []
-    #im = []
-    #n=900;
-    #k=0;
-    #for a in z:
-    #    xtsne.append(a[0])
-    #    ytsne.append(a[1])
-    #    im.append(x[k][n])
-    #    k=k+1
-
-    #xlim = [min(xtsne),max(xtsne)]
-    #ylim = [min(ytsne),max(ytsne)]
-
-    #center = [(xlim[0]+xlim[1])/2,(ylim[0]+ylim[1])/2]
-
-    #ix = tri.find_simplex(center)
-    #print(ix)
-    #print(tri.transform[ix,:2])
-    #bar = tri.transform[ix,:2].dot(center - tri.transform[ix,2])
-    #print(bar)
-    #print(np.array([1-bar.sum()]))
-    #print(np.append(bar,[1-bar.sum()],axis=0))
-
-    #nc = 63;
-    #colors = cm.rainbow(np.linspace(0,1,nc+1))
-    #print(sum(im))
-    #print(sum(np.floor(nc*im)))
-    #cs = []
-    #for x in im:
-    #    cs.append(colors[np.int32(np.floor(nc*x))])
-
-    #plt.scatter(xtsne,ytsne,color=cs)
-    #plt.interactive(False)
-    #plt.show(block=True)
+display_100_images_cmplx(images_0R, images_0I, 'Image Space Embeddings of Benign Tumor Data', res, save=save, im_dir=im_dir)
+display_100_images_cmplx(images_1R, images_1I, 'Image Space Embeddings of Malignant Tumor Data', res, save=save, im_dir=im_dir)
